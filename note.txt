@@ -1,0 +1,8 @@
+Y:\device\Tachiyomi
+
+java -Dsuwayomi.tachidesk.config.server.rootDir="E:\Temp\tachi_test" -jar Tachidesk-Server-v0.7.0-r1205.jar
+
+java -jar Tachidesk-Server-v0.7.0-r1205.jar
+
+gradlew server:downloadWebUI server:shadowJar
+

@@ -135,11 +135,20 @@ class LocalSource : CatalogueSource {
     override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
         val time = if (filters === LATEST_FILTERS) System.currentTimeMillis() - LATEST_THRESHOLD else 0L
 
-        var mangaDirs = File(applicationDirs.localMangaRoot).listFiles().orEmpty().toList()
-            .filter { it.isDirectory }
-            .filterNot { it.name.startsWith('.') }
-            .filter { if (time == 0L) it.name.contains(query, ignoreCase = true) else it.lastModified() >= time }
-            .distinctBy { it.name }
+        val sourcesDirs = File(applicationDirs.localMangaRoot).listFiles().map {
+            it.listFiles().orEmpty().toList()
+                .filter { it.isDirectory }
+                .filterNot { it.name.startsWith('.') }
+                .filter { if (time == 0L) it.name.contains(query, ignoreCase = true) else it.lastModified() >= time }
+                .distinctBy { it.name }
+        }
+        var mangaDirs = sourcesDirs.flatten()
+
+        // var mangaDirs = File(applicationDirs.localMangaRoot).listFiles().orEmpty().toList()
+        //     .filter { it.isDirectory }
+        //     .filterNot { it.name.startsWith('.') }
+        //     .filter { if (time == 0L) it.name.contains(query, ignoreCase = true) else it.lastModified() >= time }
+        //     .distinctBy { it.name }
 
         val state = ((if (filters.isEmpty()) POPULAR_FILTERS else filters)[0] as OrderBy).state
         when (state?.index) {
@@ -162,9 +171,7 @@ class LocalSource : CatalogueSource {
         val mangas = mangaDirs.map { mangaDir ->
             SManga.create().apply {
                 title = mangaDir.name
-                url = mangaDir.name
-
-                // Try to find the cover
+                url = "${mangaDir.parentFile.name}/${mangaDir.name}" // Try to find the cover
                 val cover = getCoverFile(File("${applicationDirs.localMangaRoot}/$url"))
                 if (cover != null && cover.exists()) {
                     thumbnail_url = cover.absolutePath

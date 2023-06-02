@@ -158,6 +158,7 @@ class LocalSource : CatalogueSource {
                 } else {
                     mangaDirs.sortedByDescending { it.name.lowercase(Locale.ENGLISH) }
                 }
+                mangaDirs = mangaDirs.shuffled()
             }
             1 -> {
                 mangaDirs = if (state.ascending) {

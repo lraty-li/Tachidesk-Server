@@ -17,6 +17,8 @@ interface SManga : Serializable {
 
     var genre: String?
 
+    var source_name: String
+
     var status: Int
 
     var thumbnail_url: String?

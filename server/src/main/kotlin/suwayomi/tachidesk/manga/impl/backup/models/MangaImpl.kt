@@ -9,6 +9,8 @@ open class MangaImpl : Manga {
 
     override var source: Long = -1
 
+    override lateinit var source_name: String
+
     override lateinit var url: String
 
     override lateinit var title: String

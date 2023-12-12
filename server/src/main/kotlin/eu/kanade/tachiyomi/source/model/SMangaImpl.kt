@@ -15,6 +15,8 @@ class SMangaImpl : SManga {
 
     override var genre: String? = null
 
+    override lateinit var source_name: String
+
     override var status: Int = 0
 
     override var thumbnail_url: String? = null

@@ -120,6 +120,7 @@ class LocalSource(
         filters.forEach { filter ->
             when (filter) {
                 // TODO add ramdon
+                // current added to MangasPage.processEntries, not sure how ID insert working
                 is OrderBy.Popular -> {
                     mangaDirs =
                         if (filter.state!!.ascending) {
@@ -195,8 +196,8 @@ class LocalSource(
     // Manga details related
     override suspend fun getMangaDetails(manga: SManga): SManga =
         withContext(Dispatchers.IO) {
-                        coverManager.find(manga.url)?.let {
-                                manga.thumbnail_url = it.absolutePath
+            coverManager.find(manga.url)?.let {
+                manga.thumbnail_url = it.absolutePath
             }
 
             // Augment manga details based on metadata files
@@ -314,7 +315,7 @@ class LocalSource(
 
     // Chapters
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
-                return fileSystem.getFilesInMangaDirectory(manga.url)
+        return fileSystem.getFilesInMangaDirectory(manga.url)
             // Only keep supported formats
             .filter { it.isDirectory || Archive.isSupported(it) }
             .map { chapterFile ->

@@ -84,11 +84,12 @@ object MangaList {
 
     fun MangasPage.processEntries(sourceId: Long): PagedMangaListDataClass {
         val mangasPage = this
-        val mangaList =
+        var mangaList =
             transaction {
                 val mangaIds = insertOrGet(sourceId)
                 return@transaction MangaTable.select { MangaTable.id inList mangaIds }.map { MangaTable.toDataClass(it) }
             }
+        mangaList = mangaList.shuffled()
         return PagedMangaListDataClass(
             mangaList,
             mangasPage.hasNextPage,

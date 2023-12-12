@@ -88,22 +88,38 @@ class LocalSource(
     ): MangasPage {
         val baseDirsFiles = fileSystem.getFilesInBaseDirectories()
         val lastModifiedLimit by lazy { if (filters === LATEST_FILTERS) System.currentTimeMillis() - LATEST_THRESHOLD else 0L }
-        var mangaDirs =
-            baseDirsFiles
-                // Filter out files that are hidden and is not a folder
-                .filter { it.isDirectory && !it.name.startsWith('.') }
-                .distinctBy { it.name }
-                .filter { // Filter by query or last modified
-                    if (lastModifiedLimit == 0L) {
-                        it.name.contains(query, ignoreCase = true)
-                    } else {
-                        it.lastModified() >= lastModifiedLimit
-                    }
-                }
+        // remember to keep this when confilct, fit folder difference between suwayomi and tachiyomi
+        // var mangaDirs =
+        //     baseDirsFiles
+        //         // Filter out files that are hidden and is not a folder
+        //         .filter { it.isDirectory && !it.name.startsWith('.') }
+        //         .distinctBy { it.name }
+        //         .filter { // Filter by query or last modified
+        //             if (lastModifiedLimit == 0L) {
+        //                 it.name.contains(query, ignoreCase = true)
+        //             } else {
+        //                 it.lastModified() >= lastModifiedLimit
+        //             }
+        //         }
 
+        val sourcesDirs =
+            File(applicationDirs.localMangaRoot).listFiles().map {
+                it.listFiles().orEmpty().toList()
+                    // Filter out files that are hidden and is not a folder
+                    .filter { it.isDirectory && !it.name.startsWith('.') }
+                    .distinctBy { it.name }
+                    .filter { // Filter by query or last modified
+                        if (lastModifiedLimit == 0L) {
+                            it.name.contains(query, ignoreCase = true)
+                        } else {
+                            it.lastModified() >= lastModifiedLimit
+                        }
+                    }
+            }
+        var mangaDirs = sourcesDirs.flatten()
         filters.forEach { filter ->
             when (filter) {
-                //TODO add ramdon
+                // TODO add ramdon
                 is OrderBy.Popular -> {
                     mangaDirs =
                         if (filter.state!!.ascending) {
@@ -127,17 +143,29 @@ class LocalSource(
             }
         }
 
-         // Transform mangaDirs to list of SManga
-         val mangas =
-         mangaDirs.map { mangaDir ->
-             SManga.create().apply {
-                 title = mangaDir.name
-                 url = "${mangaDir.parentFile.name}/${mangaDir.name}" 
-                 coverManager.find("${applicationDirs.localMangaRoot}/$url")
-                     ?.takeIf(File::exists)
-                     ?.let { thumbnail_url = it.absolutePath }
-             }
-         }
+        // Transform mangaDirs to list of SManga
+        // val mangas =
+        //     mangaDirs.map { mangaDir ->
+        //         SManga.create().apply {
+        //             title = mangaDir.name
+        //             url = "${mangaDir.parentFile.name}/${mangaDir.name}"
+        //             coverManager.find("${applicationDirs.localMangaRoot}/$url")
+        //                 ?.takeIf(File::exists)
+        //                 ?.let { thumbnail_url = it.absolutePath }
+        //         }
+        //     }
+        val mangas =
+            mangaDirs.map { mangaDir ->
+                SManga.create().apply {
+                    title = mangaDir.name
+                    source_name = "${mangaDir.parentFile.name}"
+                    url = "${mangaDir.parentFile.name}/${mangaDir.name}"
+                    // coverManager.find("${applicationDirs.localMangaRoot}/$url")
+                    coverManager.find(url)
+                        ?.takeIf(File::exists)
+                        ?.let { thumbnail_url = it.absolutePath }
+                }
+            }
 
         // Fetch chapters of all the manga
         mangas.forEach { manga ->
@@ -154,9 +182,9 @@ class LocalSource(
                     }
 
                     // Copy the cover from the first chapter found if not available
-                    if (manga.thumbnail_url == null) {
-                        updateCover(chapter, manga)
-                    }
+                    // if (manga.thumbnail_url == null) {
+                    //     updateCover(chapter, manga)
+                    // }
                 }
             }
         }
@@ -167,8 +195,8 @@ class LocalSource(
     // Manga details related
     override suspend fun getMangaDetails(manga: SManga): SManga =
         withContext(Dispatchers.IO) {
-            coverManager.find(manga.url)?.let {
-                manga.thumbnail_url = it.absolutePath
+                        coverManager.find(manga.url)?.let {
+                                manga.thumbnail_url = it.absolutePath
             }
 
             // Augment manga details based on metadata files
@@ -286,7 +314,7 @@ class LocalSource(
 
     // Chapters
     override suspend fun getChapterList(manga: SManga): List<SChapter> {
-        return fileSystem.getFilesInMangaDirectory(manga.url)
+                return fileSystem.getFilesInMangaDirectory(manga.url)
             // Only keep supported formats
             .filter { it.isDirectory || Archive.isSupported(it) }
             .map { chapterFile ->

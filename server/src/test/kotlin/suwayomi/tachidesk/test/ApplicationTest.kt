@@ -26,8 +26,8 @@ import suwayomi.tachidesk.server.ServerConfig
 import suwayomi.tachidesk.server.androidCompat
 import suwayomi.tachidesk.server.database.databaseUp
 import suwayomi.tachidesk.server.serverConfig
-import suwayomi.tachidesk.server.systemTrayInstance
 import suwayomi.tachidesk.server.util.AppMutex
+import suwayomi.tachidesk.server.util.SystemTray
 import xyz.nulldev.androidcompat.AndroidCompatInitializer
 import xyz.nulldev.ts.config.CONFIG_PREFIX
 import xyz.nulldev.ts.config.ConfigKodeinModule
@@ -64,7 +64,7 @@ open class ApplicationTest {
                     bind<ApplicationDirs>() with singleton { applicationDirs }
                     bind<JsonMapper>() with singleton { JavalinJackson() }
                     bind<IUpdater>() with singleton { TestUpdater() }
-                }
+                },
             )
 
             logger.debug("Data Root directory is set to: ${applicationDirs.dataRoot}")
@@ -74,16 +74,16 @@ open class ApplicationTest {
                 applicationDirs.dataRoot,
                 applicationDirs.extensionsRoot,
                 applicationDirs.extensionsRoot + "/icon",
-                applicationDirs.thumbnailsRoot,
-                applicationDirs.mangaDownloadsRoot,
-                applicationDirs.localMangaRoot
+                applicationDirs.tempThumbnailCacheRoot,
+                applicationDirs.downloadsRoot,
+                applicationDirs.localMangaRoot,
             ).forEach {
                 File(it).mkdirs()
             }
 
             // register Tachidesk's config which is dubbed "ServerConfig"
             GlobalConfigManager.registerModule(
-                ServerConfig.register(GlobalConfigManager.config)
+                ServerConfig.register { GlobalConfigManager.config },
             )
 
             // Make sure only one instance of the app is running
@@ -125,10 +125,11 @@ open class ApplicationTest {
             }
 
             // create system tray
-            if (serverConfig.systemTrayEnabled) {
+            if (serverConfig.systemTrayEnabled.value) {
                 try {
-                    systemTrayInstance
-                } catch (e: Throwable) { // cover both java.lang.Exception and java.lang.Error
+                    SystemTray.create()
+                } catch (e: Throwable) {
+                    // cover both java.lang.Exception and java.lang.Error
                     e.printStackTrace()
                 }
             }
@@ -139,10 +140,10 @@ open class ApplicationTest {
             System.setProperty("org.eclipse.jetty.LEVEL", "OFF")
 
             // socks proxy settings
-            if (serverConfig.socksProxyEnabled) {
-                System.getProperties()["socksProxyHost"] = serverConfig.socksProxyHost
-                System.getProperties()["socksProxyPort"] = serverConfig.socksProxyPort
-                logger.info("Socks Proxy is enabled to ${serverConfig.socksProxyHost}:${serverConfig.socksProxyPort}")
+            if (serverConfig.socksProxyEnabled.value) {
+                System.getProperties()["socksProxyHost"] = serverConfig.socksProxyHost.value
+                System.getProperties()["socksProxyPort"] = serverConfig.socksProxyPort.value
+                logger.info("Socks Proxy is enabled to ${serverConfig.socksProxyHost.value}:${serverConfig.socksProxyPort.value}")
             }
         }
 

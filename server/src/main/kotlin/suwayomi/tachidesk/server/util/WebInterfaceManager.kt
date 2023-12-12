@@ -405,6 +405,9 @@ object WebInterfaceManager {
     }
 
     private suspend fun isLocalWebUIValid(path: String): Boolean {
+        // DEBUG
+        return true
+        // DEBUG
         if (!doesLocalWebUIExist(path)) {
             return false
         }

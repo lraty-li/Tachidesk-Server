@@ -29,7 +29,6 @@ import suwayomi.tachidesk.manga.impl.backup.proto.ProtoBackupExport
 import suwayomi.tachidesk.manga.impl.download.DownloadManager
 import suwayomi.tachidesk.manga.impl.update.IUpdater
 import suwayomi.tachidesk.manga.impl.update.Updater
-import suwayomi.tachidesk.manga.impl.util.lang.renameTo
 import suwayomi.tachidesk.server.database.databaseUp
 import suwayomi.tachidesk.server.generated.BuildConfig
 import suwayomi.tachidesk.server.util.AppMutex.handleAppMutex
@@ -57,6 +56,7 @@ class ApplicationDirs(
 ) {
     val extensionsRoot = "$dataRoot/extensions"
     val downloadsRoot get() = serverConfig.downloadsPath.value.ifBlank { "$dataRoot/downloads" }
+
     // val localMangaRoot get() = serverConfig.localSourcePath.value.ifBlank { "$dataRoot/local" }
     val localMangaRoot = "$dataRoot/downloads"
     val webUIRoot = "$dataRoot/webUI"
@@ -66,7 +66,9 @@ class ApplicationDirs(
     val tempMangaCacheRoot = "$tempRoot/manga-cache"
 
     val thumbnailDownloadsRoot get() = "$downloadsRoot/thumbnails"
-    val mangaDownloadsRoot get() = "$downloadsRoot/mangas"
+
+    // val mangaDownloadsRoot get() = "$downloadsRoot/mangas"
+    val mangaDownloadsRoot get() = "$downloadsRoot"
 }
 
 val serverConfig: ServerConfig by lazy { GlobalConfigManager.module() }
@@ -123,26 +125,26 @@ fun applicationSetup() {
     logger.debug("Data Root directory is set to: ${applicationDirs.dataRoot}")
 
     // Migrate Directories from old versions
-    File("$ApplicationRootDir/manga-thumbnails").renameTo(applicationDirs.tempThumbnailCacheRoot)
-    File("$ApplicationRootDir/manga-local").renameTo(applicationDirs.localMangaRoot)
-    File("$ApplicationRootDir/anime-thumbnails").delete()
+    // File("$ApplicationRootDir/manga-thumbnails").renameTo(applicationDirs.tempThumbnailCacheRoot)
+    // File("$ApplicationRootDir/manga-local").renameTo(applicationDirs.localMangaRoot)
+    // File("$ApplicationRootDir/anime-thumbnails").delete()
 
     val oldMangaDownloadDir = File(applicationDirs.downloadsRoot)
     val newMangaDownloadDir = File(applicationDirs.mangaDownloadsRoot)
     val downloadDirs = oldMangaDownloadDir.listFiles().orEmpty()
 
-    val moveDownloadsToNewFolder = !newMangaDownloadDir.exists() && downloadDirs.isNotEmpty()
-    if (moveDownloadsToNewFolder) {
-        newMangaDownloadDir.mkdirs()
+    // val moveDownloadsToNewFolder = !newMangaDownloadDir.exists() && downloadDirs.isNotEmpty()
+    // if (moveDownloadsToNewFolder) {
+    //     newMangaDownloadDir.mkdirs()
 
-        for (downloadDir in downloadDirs) {
-            if (downloadDir == File(applicationDirs.thumbnailDownloadsRoot)) {
-                continue
-            }
+    //     for (downloadDir in downloadDirs) {
+    //         if (downloadDir == File(applicationDirs.thumbnailDownloadsRoot)) {
+    //             continue
+    //         }
 
-            downloadDir.renameTo(File(newMangaDownloadDir, downloadDir.name))
-        }
-    }
+    //         downloadDir.renameTo(File(newMangaDownloadDir, downloadDir.name))
+    //     }
+    // }
 
     // make dirs we need
     listOf(
@@ -184,18 +186,18 @@ fun applicationSetup() {
     }
 
     // copy local source icon
-    try {
-        val localSourceIconFile = File("${applicationDirs.extensionsRoot}/icon/localSource.png")
-        if (!localSourceIconFile.exists()) {
-            JavalinSetup::class.java.getResourceAsStream("/icon/localSource.png").use { input ->
-                localSourceIconFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
-    } catch (e: Exception) {
-        logger.error("Exception while copying Local source's icon", e)
-    }
+    // try {
+    //     val localSourceIconFile = File("${applicationDirs.extensionsRoot}/icon/localSource.png")
+    //     if (!localSourceIconFile.exists()) {
+    //         JavalinSetup::class.java.getResourceAsStream("/icon/localSource.png").use { input ->
+    //             localSourceIconFile.outputStream().use { output ->
+    //                 input.copyTo(output)
+    //             }
+    //         }
+    //     }
+    // } catch (e: Exception) {
+    //     logger.error("Exception while copying Local source's icon", e)
+    // }
 
     // fixes #119 , ref: https://github.com/Suwayomi/Tachidesk-Server/issues/119#issuecomment-894681292 , source Id calculation depends on String.lowercase()
     Locale.setDefault(Locale.ENGLISH)
@@ -219,12 +221,12 @@ fun applicationSetup() {
     }, ignoreInitialValue = false)
 
     val prefRootNode = "suwayomi/tachidesk"
-    val isMigrationRequired = Preferences.userRoot().nodeExists(prefRootNode)
-    if (isMigrationRequired) {
-        val preferences = Preferences.userRoot().node(prefRootNode)
-        migratePreferences(null, preferences)
-        preferences.removeNode()
-    }
+    // val isMigrationRequired = Preferences.userRoot().nodeExists(prefRootNode)
+    // if (isMigrationRequired) {
+    //     val preferences = Preferences.userRoot().node(prefRootNode)
+    //     migratePreferences(null, preferences)
+    //     preferences.removeNode()
+    // }
 
     // Disable jetty's logging
     System.setProperty("org.eclipse.jetty.util.log.announce", "false")

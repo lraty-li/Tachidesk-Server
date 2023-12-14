@@ -1,3 +1,4 @@
+[This is a personal modified version to read tachiyomi's downloads as local source]
 
 | Build | Stable | Preview | Support Server |
 |-------|----------|---------|---------|

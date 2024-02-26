@@ -87,9 +87,12 @@ object MangaList {
         var mangaList =
             transaction {
                 val mangaIds = insertOrGet(sourceId)
-                return@transaction MangaTable.select { MangaTable.id inList mangaIds }.map { MangaTable.toDataClass(it) }
+                // select sort the mangaList by id when in local source, cause previous sort by date fail
+                // return@transaction MangaTable.select { MangaTable.id inList mangaIds }.map { MangaTable.toDataClass(it) }
+                return@transaction mangaIds.map {
+                    MangaTable.select { MangaTable.id eq it }.map { MangaTable.toDataClass(it) }
+                }.flatten()
             }
-        mangaList = mangaList.shuffled()
         return PagedMangaListDataClass(
             mangaList,
             mangasPage.hasNextPage,

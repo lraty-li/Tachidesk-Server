@@ -123,23 +123,28 @@ class LocalSource(
             when (filter) {
                 // TODO add ramdon
                 is OrderBy.Popular -> {
-                    mangaDirs =
-                        if (filter.state!!.ascending) {
-                            mangaDirs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-                        } else {
-                            mangaDirs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name })
-                        }
+                    // mangaDirs =
+                    //    if (filter.state!!.ascending) {
+                    //        mangaDirs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+                    //    } else {
+                    //        mangaDirs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name })
+                    //    }
                     // make popular random
                     mangaDirs = sourcesDirs.shuffled().flatten()
                 }
                 is OrderBy.Latest -> {
-                    println()
                     mangaDirs =
                         if (filter.state!!.ascending) {
                             mangaDirs.sortedBy(File::lastModified)
                         } else {
                             mangaDirs.sortedByDescending(File::lastModified)
                         }
+                    // shit fix, use "creation" date
+                    // 对我用tachidesk来读取tachiyomi的文件夹来说。每次阅读一本没在suwayomi看的漫画，会在漫画文件夹创建一个空文件（.noxml）,估计tachidesk是用这个来管理时间的。继而影响到漫画文件夹的lastmodified，latest排序也因此被影响。
+                    // mangaDirs.sortedWith(compareBy { File(it.absolutePath, it.list().last()).lastModified() })
+                    // if (!filter.state!!.ascending) {
+                    //    mangaDirs = mangaDirs.reversed()
+                    // }
                 }
 
                 else -> {
@@ -253,7 +258,8 @@ class LocalSource(
                             setMangaDetailsFromComicInfoFile(copiedFile.inputStream(), manga)
                         } else {
                             // Avoid re-scanning
-                            File("$folderPath/.noxml").createNewFile()
+                            // don't create noxml
+                            // File("$folderPath/.noxml").createNewFile()
                         }
                     }
                 }

@@ -244,7 +244,8 @@ class LocalSource(
                     }
 
                     // Copy ComicInfo.xml from chapter archive to top level if found
-                    noXmlFile == null -> {
+                    /* noXmlFile == null -> {
+
                         val chapterArchives =
                             mangaDirFiles
                                 .filter(Archive::isSupported)
@@ -262,6 +263,7 @@ class LocalSource(
                             // File("$folderPath/.noxml").createNewFile()
                         }
                     }
+                     */
                 }
             } catch (e: Throwable) {
                 logger.error(e) { "Error setting manga details from local metadata for ${manga.title}" }

@@ -87,7 +87,9 @@ class LocalSource(
         filters: FilterList,
     ): MangasPage {
         val baseDirsFiles = fileSystem.getFilesInBaseDirectories()
-        val lastModifiedLimit by lazy { if (filters === LATEST_FILTERS) System.currentTimeMillis() - LATEST_THRESHOLD else 0L }
+        // turn off limit
+        // val lastModifiedLimit by lazy { if (filters === LATEST_FILTERS) System.currentTimeMillis() - LATEST_THRESHOLD else 0L }
+        val lastModifiedLimit = 0L
         // remember to keep this when confilct, fit folder difference between suwayomi and tachiyomi
         // var mangaDirs =
         //     baseDirsFiles
@@ -120,14 +122,15 @@ class LocalSource(
         filters.forEach { filter ->
             when (filter) {
                 // TODO add ramdon
-                // current added to MangasPage.processEntries, not sure how ID insert working
                 is OrderBy.Popular -> {
-                    mangaDirs =
-                        if (filter.state!!.ascending) {
-                            mangaDirs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
-                        } else {
-                            mangaDirs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name })
-                        }
+                    // mangaDirs =
+                    //    if (filter.state!!.ascending) {
+                    //        mangaDirs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+                    //    } else {
+                    //        mangaDirs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name })
+                    //    }
+                    // make popular random
+                    mangaDirs = sourcesDirs.shuffled().flatten()
                 }
                 is OrderBy.Latest -> {
                     mangaDirs =
@@ -136,6 +139,12 @@ class LocalSource(
                         } else {
                             mangaDirs.sortedByDescending(File::lastModified)
                         }
+                    // shit fix, use "creation" date
+                    // 对我用tachidesk来读取tachiyomi的文件夹来说。每次阅读一本没在suwayomi看的漫画，会在漫画文件夹创建一个空文件（.noxml）,估计tachidesk是用这个来管理时间的。继而影响到漫画文件夹的lastmodified，latest排序也因此被影响。
+                    // mangaDirs.sortedWith(compareBy { File(it.absolutePath, it.list().last()).lastModified() })
+                    // if (!filter.state!!.ascending) {
+                    //    mangaDirs = mangaDirs.reversed()
+                    // }
                 }
 
                 else -> {
@@ -143,6 +152,7 @@ class LocalSource(
                 }
             }
         }
+        // mom > mad > 女
 
         // Transform mangaDirs to list of SManga
         // val mangas =
@@ -234,7 +244,8 @@ class LocalSource(
                     }
 
                     // Copy ComicInfo.xml from chapter archive to top level if found
-                    noXmlFile == null -> {
+                    /* noXmlFile == null -> {
+
                         val chapterArchives =
                             mangaDirFiles
                                 .filter(Archive::isSupported)
@@ -248,9 +259,11 @@ class LocalSource(
                             setMangaDetailsFromComicInfoFile(copiedFile.inputStream(), manga)
                         } else {
                             // Avoid re-scanning
-                            File("$folderPath/.noxml").createNewFile()
+                            // don't create noxml
+                            // File("$folderPath/.noxml").createNewFile()
                         }
                     }
+                     */
                 }
             } catch (e: Throwable) {
                 logger.error(e) { "Error setting manga details from local metadata for ${manga.title}" }

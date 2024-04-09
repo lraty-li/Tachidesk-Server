@@ -34,8 +34,10 @@ import org.jetbrains.exposed.sql.update
 import suwayomi.tachidesk.manga.impl.Manga.getManga
 import suwayomi.tachidesk.manga.impl.download.DownloadManager
 import suwayomi.tachidesk.manga.impl.download.DownloadManager.EnqueueInput
+import suwayomi.tachidesk.manga.impl.track.Track
 import suwayomi.tachidesk.manga.impl.util.source.GetCatalogueSource.getCatalogueSourceOrStub
 import suwayomi.tachidesk.manga.model.dataclass.ChapterDataClass
+import suwayomi.tachidesk.manga.model.dataclass.IncludeOrExclude
 import suwayomi.tachidesk.manga.model.dataclass.MangaChapterDataClass
 import suwayomi.tachidesk.manga.model.dataclass.PaginatedList
 import suwayomi.tachidesk.manga.model.dataclass.paginatedFrom
@@ -137,13 +139,17 @@ object Chapter {
                 val numberOfCurrentChapters = getCountOfMangaChapters(mangaId)
                 val chapterList = source.getChapterList(sManga)
 
+                if (chapterList.isEmpty()) {
+                    throw Exception("No chapters found")
+                }
+
                 // Recognize number for new chapters.
                 chapterList.forEach { chapter ->
                     (source as? HttpSource)?.prepareNewChapter(chapter, sManga)
                     val chapterNumber = ChapterRecognition.parseChapterNumber(manga.title, chapter.name, chapter.chapter_number.toDouble())
                     chapter.chapter_number = chapterNumber.toFloat()
                     chapter.name = chapter.name.sanitize(manga.title)
-                    chapter.scanlator = chapter.scanlator?.ifBlank { null }
+                    chapter.scanlator = chapter.scanlator?.ifBlank { null }?.trim()
                 }
 
                 val now = Instant.now().epochSecond
@@ -304,23 +310,67 @@ object Chapter {
                     "mangaId= $mangaId, " +
                     "prevNumberOfChapters= $prevNumberOfChapters, " +
                     "updatedChapterList= ${updatedChapterList.size}, " +
-                    "downloadAheadLimit= ${serverConfig.autoDownloadAheadLimit.value}" +
+                    "autoDownloadNewChaptersLimit= ${serverConfig.autoDownloadNewChaptersLimit.value}" +
                     ")",
             )
 
-        // convert numbers to be index based
+        if (!serverConfig.autoDownloadNewChapters.value) {
+            log.debug { "automatic download is not configured" }
+            return
+        }
+
+        // Only download if there are new chapters, or if this is the first fetch
         val newNumberOfChapters = updatedChapterList.size
         val numberOfNewChapters = newNumberOfChapters - prevNumberOfChapters
 
         val areNewChaptersAvailable = numberOfNewChapters > 0
         val wasInitialFetch = prevNumberOfChapters == 0
 
-        // make sure to ignore initial fetch
-        val isDownloadPossible =
-            serverConfig.autoDownloadNewChapters.value && areNewChaptersAvailable && !wasInitialFetch
-        if (!isDownloadPossible) {
-            log.debug { "download is not allowed/possible" }
+        if (!areNewChaptersAvailable) {
+            log.debug { "no new chapters available" }
             return
+        }
+
+        if (wasInitialFetch) {
+            log.debug { "skipping download on initial fetch" }
+            return
+        }
+
+        // Verify the manga is configured to be downloaded based on it's categories.
+        var mangaCategories = CategoryManga.getMangaCategories(mangaId).toSet()
+        // if the manga has no categories, then it's implicitly in the default category
+        if (mangaCategories.isEmpty()) {
+            val defaultCategory = Category.getCategoryById(Category.DEFAULT_CATEGORY_ID)
+            if (defaultCategory != null) {
+                mangaCategories = setOf(defaultCategory)
+            } else {
+                log.warn { "missing default category" }
+            }
+        }
+
+        if (mangaCategories.isNotEmpty()) {
+            val downloadCategoriesMap = Category.getCategoryList().groupBy { it.includeInDownload }
+            val unsetCategories = downloadCategoriesMap[IncludeOrExclude.UNSET].orEmpty()
+            // We only download if it's in the include list, and not in the exclude list.
+            // Use the unset categories as the included categories if the included categories is
+            // empty
+            val includedCategories = downloadCategoriesMap[IncludeOrExclude.INCLUDE].orEmpty().ifEmpty { unsetCategories }
+            val excludedCategories = downloadCategoriesMap[IncludeOrExclude.EXCLUDE].orEmpty()
+            // Only download manga that aren't in any excluded categories
+            val mangaExcludeCategories = mangaCategories.intersect(excludedCategories.toSet())
+            if (mangaExcludeCategories.isNotEmpty()) {
+                log.debug { "download excluded by categories: '${mangaExcludeCategories.joinToString("', '") { it.name }}'" }
+                return
+            }
+            val mangaDownloadCategories = mangaCategories.intersect(includedCategories.toSet())
+            if (mangaDownloadCategories.isNotEmpty()) {
+                log.debug { "download inluded by categories: '${mangaDownloadCategories.joinToString("', '") { it.name }}'" }
+            } else {
+                log.debug { "skipping download due to download categories configuration" }
+                return
+            }
+        } else {
+            log.debug { "no categories configured, skipping check for category download include/excludes" }
         }
 
         val newChapters = updatedChapterList.subList(0, numberOfNewChapters)
@@ -339,8 +389,8 @@ object Chapter {
         }
 
         val firstChapterToDownloadIndex =
-            if (serverConfig.autoDownloadAheadLimit.value > 0) {
-                (numberOfNewChapters - serverConfig.autoDownloadAheadLimit.value - 1).coerceAtLeast(0)
+            if (serverConfig.autoDownloadNewChaptersLimit.value > 0) {
+                (numberOfNewChapters - serverConfig.autoDownloadNewChaptersLimit.value).coerceAtLeast(0)
             } else {
                 0
             }
@@ -389,6 +439,10 @@ object Chapter {
                     it[ChapterTable.isRead] = markPrevRead
                 }
             }
+        }
+
+        if (isRead == true || markPrevRead == true) {
+            Track.asyncTrackChapter(setOf(mangaId))
         }
     }
 
@@ -469,6 +523,16 @@ object Chapter {
                     update[ChapterTable.lastReadAt] = now
                 }
             }
+        }
+
+        if (isRead == true) {
+            val mangaIds =
+                transaction {
+                    ChapterTable.select { condition }
+                        .map { it[ChapterTable.manga].value }
+                        .toSet()
+                }
+            Track.asyncTrackChapter(mangaIds)
         }
     }
 

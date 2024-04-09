@@ -16,12 +16,9 @@ import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import suwayomi.tachidesk.manga.impl.util.PackageTools.LIB_VERSION_MAX
 import suwayomi.tachidesk.manga.impl.util.PackageTools.LIB_VERSION_MIN
-import suwayomi.tachidesk.manga.model.dataclass.ExtensionDataClass
 import uy.kohesive.injekt.injectLazy
 
 object ExtensionGithubApi {
-    private const val REPO_URL_PREFIX = "https://raw.githubusercontent.com/tachiyomiorg/tachiyomi-extensions/repo/"
-    private const val FALLBACK_REPO_URL_PREFIX = "https://gcore.jsdelivr.net/gh/tachiyomiorg/tachiyomi-extensions@repo/"
     private val logger = KotlinLogging.logger {}
     private val json: Json by injectLazy()
 
@@ -47,36 +44,22 @@ object ExtensionGithubApi {
         val baseUrl: String,
     )
 
-    private var requiresFallbackSource = false
-
-    suspend fun findExtensions(): List<OnlineExtension> {
-        val githubResponse =
-            if (requiresFallbackSource) {
-                null
-            } else {
-                try {
-                    client.newCall(GET("${REPO_URL_PREFIX}index.min.json")).awaitSuccess()
-                } catch (e: Throwable) {
-                    logger.error(e) { "Failed to get extensions from GitHub" }
-                    requiresFallbackSource = true
-                    null
-                }
-            }
-
+    suspend fun findExtensions(repo: String): List<OnlineExtension> {
         val response =
-            githubResponse ?: run {
-                client.newCall(GET("${FALLBACK_REPO_URL_PREFIX}index.min.json")).awaitSuccess()
-            }
+            client.newCall(GET(repo)).awaitSuccess()
 
         return with(json) {
             response
                 .parseAs<List<ExtensionJsonObject>>()
-                .toExtensions()
+                .toExtensions(repo.substringBeforeLast('/') + '/')
         }
     }
 
-    fun getApkUrl(extension: ExtensionDataClass): String {
-        return "$REPO_URL_PREFIX/apk/${extension.apkName}"
+    fun getApkUrl(
+        repo: String,
+        apkName: String,
+    ): String {
+        return "${repo}apk/$apkName"
     }
 
     private val client by lazy {
@@ -91,7 +74,7 @@ object ExtensionGithubApi {
             .build()
     }
 
-    private fun List<ExtensionJsonObject>.toExtensions(): List<OnlineExtension> {
+    private fun List<ExtensionJsonObject>.toExtensions(repo: String): List<OnlineExtension> {
         return this
             .filter {
                 val libVersion = it.version.substringBeforeLast('.').toDouble()
@@ -99,6 +82,7 @@ object ExtensionGithubApi {
             }
             .map {
                 OnlineExtension(
+                    repo = repo,
                     name = it.name.substringAfter("Tachiyomi: "),
                     pkgName = it.pkg,
                     versionName = it.version,
@@ -109,7 +93,7 @@ object ExtensionGithubApi {
                     hasChangelog = it.hasChangelog == 1,
                     sources = it.sources?.toExtensionSources() ?: emptyList(),
                     apkName = it.apk,
-                    iconUrl = "${REPO_URL_PREFIX}icon/${it.pkg}.png",
+                    iconUrl = "${repo}icon/${it.pkg}.png",
                 )
             }
     }

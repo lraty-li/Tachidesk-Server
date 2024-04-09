@@ -16,10 +16,11 @@ enum class ExitCode(val code: Int) {
     Success(0),
     MutexCheckFailedTachideskRunning(1),
     MutexCheckFailedAnotherAppRunning(2),
+    WebUISetupFailure(3),
 }
 
 fun shutdownApp(exitCode: ExitCode) {
-    logger.info("Shutting Down Tachidesk. Goodbye!")
+    logger.info("Shutting Down Suwayomi-Server. Goodbye!")
 
     exitProcess(exitCode.code)
 }

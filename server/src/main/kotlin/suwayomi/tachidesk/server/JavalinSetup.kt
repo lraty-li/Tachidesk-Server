@@ -35,6 +35,7 @@ import suwayomi.tachidesk.server.util.WebInterfaceManager
 import java.io.IOException
 import java.lang.IllegalArgumentException
 import java.util.concurrent.CompletableFuture
+import kotlin.NoSuchElementException
 import kotlin.concurrent.thread
 
 object JavalinSetup {
@@ -105,13 +106,15 @@ object JavalinSetup {
                         handler.handle(ctx)
                     }
                 }
-            }.events { event ->
-                event.serverStarted {
-                    if (serverConfig.initialOpenInBrowserEnabled.value) {
-                        Browser.openInBrowser()
-                    }
+            }
+
+        app.events { event ->
+            event.serverStarted {
+                if (serverConfig.initialOpenInBrowserEnabled.value) {
+                    Browser.openInBrowser()
                 }
-            }.start()
+            }
+        }
 
         // when JVM is prompted to shutdown, stop javalin gracefully
         Runtime.getRuntime().addShutdownHook(
@@ -149,19 +152,21 @@ object JavalinSetup {
                 GraphQL.defineEndpoints()
             }
         }
+
+        app.start()
     }
 
     private fun getOpenApiOptions(): OpenApiOptions {
         val applicationInfo =
             Info().apply {
                 version("1.0")
-                description("Tachidesk Api")
+                description("Suwayomi-Server Api")
             }
         return OpenApiOptions(applicationInfo).apply {
             path("/api/openapi.json")
             swagger(
                 SwaggerOptions("/api/swagger-ui").apply {
-                    title("Tachidesk Swagger Documentation")
+                    title("Suwayomi-Server Swagger Documentation")
                 },
             )
         }

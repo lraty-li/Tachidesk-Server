@@ -8,6 +8,7 @@
 package suwayomi.tachidesk.graphql.types
 
 import com.expediagroup.graphql.server.extensions.getValueFromDataLoader
+import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import graphql.schema.DataFetchingEnvironment
 import org.jetbrains.exposed.sql.ResultRow
 import suwayomi.tachidesk.graphql.server.primitives.Cursor
@@ -29,6 +30,7 @@ class MangaType(
     val url: String,
     val title: String,
     val thumbnailUrl: String?,
+    val thumbnailUrlLastFetched: Long?,
     val initialized: Boolean,
     val artist: String?,
     val author: String?,
@@ -37,6 +39,7 @@ class MangaType(
     val status: MangaStatus,
     val inLibrary: Boolean,
     val inLibraryAt: Long,
+    val updateStrategy: UpdateStrategy,
     val realUrl: String?,
     var lastFetchedAt: Long?, // todo
     var chaptersLastFetchedAt: Long?, // todo
@@ -46,16 +49,19 @@ class MangaType(
             mangaId: Int,
             dataFetchingEnvironment: DataFetchingEnvironment,
         ) {
-            dataFetchingEnvironment.getDataLoader<List<Int>, MangaNodeList>("MangaDataLoader").clear(listOf(mangaId))
-            dataFetchingEnvironment.getDataLoader<List<Int>, MangaNodeList>("MangaForIdsDataLoader").clear(listOf(mangaId))
+            dataFetchingEnvironment.getDataLoader<Int, MangaType>("MangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, MangaNodeList>("MangaForIdsDataLoader").clear(mangaId)
             dataFetchingEnvironment.getDataLoader<Int, Int>("DownloadedChapterCountForMangaDataLoader").clear(mangaId)
             dataFetchingEnvironment.getDataLoader<Int, Int>("UnreadChapterCountForMangaDataLoader").clear(mangaId)
-            dataFetchingEnvironment.getDataLoader<Int, Int>("LastReadChapterForMangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, ChapterType>("LastReadChapterForMangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, ChapterType>("LatestReadChapterForMangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, ChapterType>("LatestFetchedChapterForMangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, ChapterType>("LatestUploadedChapterForMangaDataLoader").clear(mangaId)
             dataFetchingEnvironment.getDataLoader<Int, ChapterNodeList>(
                 "ChaptersForMangaDataLoader",
             ).clear(mangaId)
-            dataFetchingEnvironment.getDataLoader<Int, Int>("MangaMetaDataLoader").clear(mangaId)
-            dataFetchingEnvironment.getDataLoader<Int, Int>("CategoriesForMangaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, List<MangaMetaType>>("MangaMetaDataLoader").clear(mangaId)
+            dataFetchingEnvironment.getDataLoader<Int, CategoryNodeList>("CategoriesForMangaDataLoader").clear(mangaId)
         }
     }
 
@@ -65,6 +71,7 @@ class MangaType(
         row[MangaTable.url],
         row[MangaTable.title],
         row[MangaTable.thumbnail_url]?.let { MangaList.proxyThumbnailUrl(row[MangaTable.id].value) },
+        row[MangaTable.thumbnailUrlLastFetched],
         row[MangaTable.initialized],
         row[MangaTable.artist],
         row[MangaTable.author],
@@ -73,6 +80,7 @@ class MangaType(
         MangaStatus.valueOf(row[MangaTable.status]),
         row[MangaTable.inLibrary],
         row[MangaTable.inLibraryAt],
+        UpdateStrategy.valueOf(row[MangaTable.updateStrategy]),
         row[MangaTable.realUrl],
         row[MangaTable.lastFetchedAt],
         row[MangaTable.chaptersLastFetchedAt],
@@ -84,6 +92,7 @@ class MangaType(
         dataClass.url,
         dataClass.title,
         dataClass.thumbnailUrl,
+        dataClass.thumbnailUrlLastFetched,
         dataClass.initialized,
         dataClass.artist,
         dataClass.author,
@@ -92,6 +101,7 @@ class MangaType(
         MangaStatus.valueOf(dataClass.status),
         dataClass.inLibrary,
         dataClass.inLibraryAt,
+        dataClass.updateStrategy,
         dataClass.realUrl,
         dataClass.lastFetchedAt,
         dataClass.chaptersLastFetchedAt,
@@ -107,6 +117,18 @@ class MangaType(
 
     fun lastReadChapter(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<ChapterType?> {
         return dataFetchingEnvironment.getValueFromDataLoader("LastReadChapterForMangaDataLoader", id)
+    }
+
+    fun latestReadChapter(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<ChapterType?> {
+        return dataFetchingEnvironment.getValueFromDataLoader("LatestReadChapterForMangaDataLoader", id)
+    }
+
+    fun latestFetchedChapter(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<ChapterType?> {
+        return dataFetchingEnvironment.getValueFromDataLoader("LatestFetchedChapterForMangaDataLoader", id)
+    }
+
+    fun latestUploadedChapter(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<ChapterType?> {
+        return dataFetchingEnvironment.getValueFromDataLoader("LatestUploadedChapterForMangaDataLoader", id)
     }
 
     fun chapters(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<ChapterNodeList> {
@@ -134,6 +156,10 @@ class MangaType(
 
     fun source(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<SourceType?> {
         return dataFetchingEnvironment.getValueFromDataLoader<Long, SourceType?>("SourceDataLoader", sourceId)
+    }
+
+    fun trackRecords(dataFetchingEnvironment: DataFetchingEnvironment): CompletableFuture<TrackRecordNodeList> {
+        return dataFetchingEnvironment.getValueFromDataLoader<Int, TrackRecordNodeList>("TrackRecordsForMangaIdDataLoader", id)
     }
 }
 

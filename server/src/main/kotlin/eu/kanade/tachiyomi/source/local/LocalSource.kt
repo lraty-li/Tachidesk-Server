@@ -130,7 +130,7 @@ class LocalSource(
                     //        mangaDirs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.name })
                     //    }
                     // make popular random
-                    mangaDirs = sourcesDirs.shuffled().flatten()
+                    mangaDirs = mangaDirs.shuffled().take(20)
                 }
                 is OrderBy.Latest -> {
                     mangaDirs =

@@ -49,7 +49,9 @@ subprojects {
 
                 freeCompilerArgs += listOf(
                     "-Xcontext-receivers",
+                    //"-Xdebug"
                 )
+
             }
         }
     }

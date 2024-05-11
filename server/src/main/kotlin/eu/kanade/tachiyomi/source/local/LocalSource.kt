@@ -81,6 +81,19 @@ class LocalSource(
 
     override suspend fun getLatestUpdates(page: Int) = getSearchManga(page, "", LATEST_FILTERS)
 
+    private fun getOneCBZ(mangaUrl: String): File? {
+        return fileSystem.getFilesInMangaDirectory(mangaUrl)
+            // Get all file whose names start with 'cover'
+            .filter { it.isFile && it.extension.equals("cbz", ignoreCase = true) }
+            // Get the first actual image
+            .firstOrNull()
+    }
+
+    private fun getNewCoverPath(mangaUrl: String): File {
+        val newCoverPath = "${fileSystem.getBaseDirectories().first().absolutePath}/$mangaUrl/cover.jpg" // DEFAULT_COVER_NAME
+        return File(newCoverPath)
+    }
+
     override suspend fun getSearchManga(
         page: Int,
         query: String,
@@ -175,6 +188,29 @@ class LocalSource(
                     coverManager.find(url)
                         ?.takeIf(File::exists)
                         ?.let { thumbnail_url = it.absolutePath }
+                    val coverFile = coverManager.find(url)
+                    if (coverFile != null) {
+                        if (coverFile.exists()) {
+                            coverFile.let {
+                                thumbnail_url = it.absolutePath
+                            }
+                        }
+                    } else {
+                        // cover.jpg not found, create one with first page of cbz
+                        val cbzFile = getOneCBZ(url)
+                        if (cbzFile != null) {
+                            val loader = ZipPageLoader(cbzFile)
+                            val firstPages = loader.getPages().first()
+                            val newCoverFile = getNewCoverPath(url)
+                            if (!newCoverFile.exists()) {
+                                newCoverFile.createNewFile()
+                                firstPages.stream?.let {
+                                    newCoverFile.writeBytes(it.invoke().readBytes())
+                                    thumbnail_url = newCoverFile.absolutePath
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
